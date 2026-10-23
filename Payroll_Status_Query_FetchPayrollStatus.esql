@@ -1,0 +1,76 @@
+
+
+CREATE COMPUTE MODULE Payroll_Status_Query_FetchPayrollStatus
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+BEGIN
+   -- 1. URL se requestId nikalne ka tareeqa
+        DECLARE uri CHARACTER;
+        SET uri = InputLocalEnvironment.HTTP.Input.RequestUri;
+
+        DECLARE reqId CHARACTER '';
+        DECLARE pos INTEGER;
+        SET pos = POSITION('requestId=' IN uri);
+        
+        IF pos = 0 THEN
+            SET pos = POSITION('requestid=' IN uri);
+        END IF;
+
+        IF pos > 0 THEN
+            SET reqId = SUBSTRING(uri FROM pos + 10 FOR 50);
+            DECLARE ampPos INTEGER;
+            SET ampPos = POSITION('&' IN reqId);
+            IF ampPos > 0 THEN
+                SET reqId = SUBSTRING(reqId FROM 1 FOR ampPos - 1);
+            END IF;
+        END IF;
+
+        IF reqId IS NULL OR reqId = '' THEN
+            SET reqId = 'PR-2026-00001';
+        END IF;
+
+        -- 2. Database Query (Node ki Data Source property se automatically PAYROLLDB use karega)
+        DECLARE dbEmp ROW;
+        SET dbEmp.Record[] = PASSTHRU('SELECT employee_id, gross_salary, tax, net_salary, status FROM PAYROLL_TRANSACTION WHERE request_id = ?' VALUES(reqId));
+
+        DECLARE recCount INTEGER;
+        SET recCount = CARDINALITY(dbEmp.Record[]);
+
+        IF recCount = 0 THEN
+            SET OutputRoot.JSON.Data.status = 'NOT_FOUND';
+            SET OutputRoot.JSON.Data.requestId = reqId;
+            SET OutputRoot.JSON.Data.message = 'No records found in database';
+            RETURN TRUE;
+        END IF;
+
+        -- 3. Response JSON Construct Karo
+        SET OutputRoot.JSON.Data.payrollStatusResponse.requestId = reqId;
+        SET OutputRoot.JSON.Data.payrollStatusResponse.totalRecords = recCount;
+
+        DECLARE I INTEGER 1;
+        DECLARE succCount INTEGER 0;
+        DECLARE failCount INTEGER 0;
+
+        WHILE I <= recCount DO
+            DECLARE empStatus CHARACTER dbEmp.Record[I].status;
+
+            SET OutputRoot.JSON.Data.payrollStatusResponse.employees.Item[I].employeeId  = dbEmp.Record[I].employee_id;
+            SET OutputRoot.JSON.Data.payrollStatusResponse.employees.Item[I].grossSalary = dbEmp.Record[I].gross_salary;
+            SET OutputRoot.JSON.Data.payrollStatusResponse.employees.Item[I].tax         = dbEmp.Record[I].tax;
+            SET OutputRoot.JSON.Data.payrollStatusResponse.employees.Item[I].netSalary   = dbEmp.Record[I].net_salary;
+            SET OutputRoot.JSON.Data.payrollStatusResponse.employees.Item[I].status      = empStatus;
+
+            IF empStatus = 'SUCCESS' THEN
+                SET succCount = succCount + 1;
+            ELSE
+                SET failCount = failCount + 1;
+            END IF;
+
+            SET I = I + 1;
+        END WHILE;
+
+        SET OutputRoot.JSON.Data.payrollStatusResponse.successfulEmployees = succCount;
+        SET OutputRoot.JSON.Data.payrollStatusResponse.failedEmployees     = failCount;
+
+        RETURN TRUE;
+    END;
+END MODULE;

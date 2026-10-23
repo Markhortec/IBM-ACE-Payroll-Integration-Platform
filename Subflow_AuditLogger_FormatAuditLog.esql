@@ -1,0 +1,28 @@
+
+
+CREATE COMPUTE MODULE Subflow_AuditLogger_FormatAuditLog
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	   BEGIN
+
+       -- Audit Log Data
+        DECLARE reqId CHARACTER Environment.Payroll.requestId;
+        DECLARE compId CHARACTER Environment.Payroll.companyId;
+
+        IF reqId IS NULL THEN
+            SET reqId = 'UNKNOWN';
+        END IF;
+
+        IF compId IS NULL THEN
+            SET compId = 'UNKNOWN';
+        END IF;
+
+        -- Audit JSON Structure
+        SET OutputRoot.JSON.Data.auditRecord.timestamp   = CURRENT_TIMESTAMP;
+        SET OutputRoot.JSON.Data.auditRecord.requestId   = reqId;
+        SET OutputRoot.JSON.Data.auditRecord.companyId   = compId;
+        SET OutputRoot.JSON.Data.auditRecord.event       = 'PAYROLL_BATCH_PROCESSED';
+        SET OutputRoot.JSON.Data.auditRecord.status      = 'SUCCESS';
+
+        RETURN TRUE;
+    END;
+END MODULE;

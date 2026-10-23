@@ -1,0 +1,73 @@
+
+
+CREATE COMPUTE MODULE Subflow_GlobalErrorHandler_FormatTechnicalError
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+        -- =========================================================
+        -- KADAM 1: MQ Header (Lifafa Set Karo)
+        -- =========================================================
+        SET OutputRoot.MQMD.Format = 'MQSTR';
+
+
+        -- =========================================================
+        -- KADAM 2: Khali Dabbe (Variables) Banao
+        -- =========================================================
+        DECLARE errNumber INTEGER;     -- Error Code number (e.g. 2321)
+        DECLARE errText   CHARACTER;   -- Error ki tafseel (Detail Text)
+        DECLARE errNode   CHARACTER;   -- Kis Node par error aaya
+
+        -- Pehle default values rakh do
+        SET errNumber = 0;
+        SET errText   = 'Unknown Technical Error';
+        SET errNode   = 'Unknown Node';
+
+
+        -- =========================================================
+        -- KADAM 3: ACE ke Error Tree (InputExceptionList) par ungli rakho
+        -- =========================================================
+        -- ptr = Ek ishara (reference) jo Error Tree ki pehli branch par hai
+        DECLARE ptr REFERENCE TO InputExceptionList.*[1];
+
+
+        -- =========================================================
+        -- KADAM 4: Tree ke andar ghus kar Asli Error dhoondo
+        -- =========================================================
+        -- WHILE LASTMOVE(ptr) DO = Jab tak tree ke andar chalte ja sakte ho
+        WHILE LASTMOVE(ptr) DO
+            
+            -- Agar is branch par Error Number mojood hai:
+            IF ptr.Number IS NOT NULL THEN
+                SET errNumber = ptr.Number;  -- Error code save karo
+                SET errText   = ptr.Text;    -- Error text save karo
+                SET errNode   = ptr.Label;   -- Node ka naam save karo
+            END IF;
+
+            -- Agli andar wali branch par chalo (Ghehrai mein jao)
+            MOVE ptr LASTCHILD;
+
+        END WHILE;
+
+
+        -- =========================================================
+        -- KADAM 5: PAYROLL.ERROR Queue ke liye JSON Audit Report Banao
+        -- =========================================================
+        -- Time / Tareekh
+        SET OutputRoot.JSON.Data.errorAudit.timestamp   = CURRENT_TIMESTAMP;
+        
+        -- Error ki Type
+        SET OutputRoot.JSON.Data.errorAudit.errorType   = 'TECHNICAL_EXCEPTION';
+        
+        -- Error Code (e.g. BIP2321)
+        SET OutputRoot.JSON.Data.errorAudit.errorCode   = 'BIP' || CAST(errNumber AS CHARACTER);
+        
+        -- Asli Wajah / Message
+        SET OutputRoot.JSON.Data.errorAudit.errorReason = errText;
+        
+        -- Node ka Name jahan ghalati hui
+        SET OutputRoot.JSON.Data.errorAudit.failingNode  = errNode;
+
+
+        RETURN TRUE;
+    END;
+END MODULE;

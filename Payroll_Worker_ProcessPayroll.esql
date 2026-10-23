@@ -1,0 +1,94 @@
+CREATE COMPUTE MODULE Payroll_Worker_ProcessPayroll
+    CREATE FUNCTION Main() RETURNS BOOLEAN
+    BEGIN
+SET OutputRoot.MQMD.Format = 'MQSTR';
+
+        SET Environment.Payroll.requestId = InputRoot.JSON.Data.payrollRequest.requestId;
+        SET Environment.Payroll.companyId = InputRoot.JSON.Data.payrollRequest.companyId;
+        SET Environment.Payroll.totalGross = 0;
+        SET Environment.Payroll.totalTax = 0;
+        SET Environment.Payroll.totalNet = 0;
+        SET Environment.Payroll.successCnt = 0;
+        SET Environment.Payroll.failCnt = 0;
+
+        DECLARE empCount INTEGER;
+        SET empCount = CARDINALITY(InputRoot.JSON.Data.payrollRequest.employees.Item[]);
+        SET Environment.Payroll.totalEmployees = empCount;
+
+        DECLARE I INTEGER 1;
+
+        WHILE I <= empCount DO
+
+            DECLARE empId CHARACTER InputRoot.JSON.Data.payrollRequest.employees.Item[I].employeeId;
+            DECLARE empName CHARACTER InputRoot.JSON.Data.payrollRequest.employees.Item[I].name;
+            DECLARE accNo CHARACTER InputRoot.JSON.Data.payrollRequest.employees.Item[I].accountNumber;
+            DECLARE basicSal DECIMAL InputRoot.JSON.Data.payrollRequest.employees.Item[I].basicSalary;
+            DECLARE allowAmt DECIMAL InputRoot.JSON.Data.payrollRequest.employees.Item[I].allowance;
+            DECLARE deductAmt DECIMAL InputRoot.JSON.Data.payrollRequest.employees.Item[I].deduction;
+
+            -- Database Lookup
+            DECLARE dbEmp ROW;
+            SET dbEmp.Record[] = PASSTHRU('SELECT status FROM EMPLOYEE WHERE employee_id = ? AND company_id = ?' VALUES(empId, Environment.Payroll.companyId));
+
+            IF CARDINALITY(dbEmp.Record[]) > 0 AND dbEmp.Record[1].status = 'ACTIVE' THEN
+                
+                SET Environment.CurrentEmp.index = I;
+                SET Environment.CurrentEmp.empId = empId;
+                SET Environment.CurrentEmp.empName = empName;
+                SET Environment.CurrentEmp.accNo = accNo;
+                SET Environment.CurrentEmp.basicSal = basicSal;
+                SET Environment.CurrentEmp.allowAmt = allowAmt;
+                SET Environment.CurrentEmp.deductAmt = deductAmt;
+                SET Environment.CurrentEmp.grossSal = basicSal + allowAmt;
+
+                SET OutputRoot.JSON.Data.employeeId = empId;
+                SET OutputRoot.JSON.Data.grossSalary = Environment.CurrentEmp.grossSal;
+
+                PROPAGATE TO TERMINAL 'out1';
+
+            ELSE
+                
+                -- Status text shortened to fit in VARCHAR(20)
+                DECLARE empStatus CHARACTER 'FAILED_INACTIVE';
+                
+                -- DB Insert
+                PASSTHRU 'INSERT INTO PAYROLL_TRANSACTION (request_id, company_id, employee_id, gross_salary, tax, net_salary, status) VALUES (?, ?, ?, ?, ?, ?, ?)' 
+                VALUES(Environment.Payroll.requestId, Environment.Payroll.companyId, empId, 0, 0, 0, empStatus);
+
+                SET Environment.Response.employees.Item[I].employeeId  = empId;
+                SET Environment.Response.employees.Item[I].name        = empName;
+                SET Environment.Response.employees.Item[I].grossSalary = 0;
+                SET Environment.Response.employees.Item[I].tax         = 0;
+                SET Environment.Response.employees.Item[I].netSalary   = 0;
+                SET Environment.Response.employees.Item[I].status      = empStatus;
+
+                SET Environment.Payroll.failCnt = Environment.Payroll.failCnt + 1;
+
+            END IF;
+
+            SET I = I + 1;
+
+        END WHILE;
+
+        SET OutputRoot.JSON.Data.payrollResponse.requestId = Environment.Payroll.requestId;
+        SET OutputRoot.JSON.Data.payrollResponse.companyId = Environment.Payroll.companyId;
+
+        IF Environment.Payroll.failCnt = 0 THEN
+            SET OutputRoot.JSON.Data.payrollResponse.status = 'COMPLETED';
+        ELSEIF Environment.Payroll.successCnt > 0 THEN
+            SET OutputRoot.JSON.Data.payrollResponse.status = 'PARTIAL_SUCCESS';
+        ELSE
+            SET OutputRoot.JSON.Data.payrollResponse.status = 'FAILED';
+        END IF;
+
+        SET OutputRoot.JSON.Data.payrollResponse.employees          = Environment.Response.employees;
+        SET OutputRoot.JSON.Data.payrollResponse.totalEmployees      = Environment.Payroll.totalEmployees;
+        SET OutputRoot.JSON.Data.payrollResponse.successfulEmployees = Environment.Payroll.successCnt;
+        SET OutputRoot.JSON.Data.payrollResponse.failedEmployees     = Environment.Payroll.failCnt;
+        SET OutputRoot.JSON.Data.payrollResponse.totalGrossSalary    = Environment.Payroll.totalGross;
+        SET OutputRoot.JSON.Data.payrollResponse.totalTax            = Environment.Payroll.totalTax;
+        SET OutputRoot.JSON.Data.payrollResponse.totalNetSalary      = Environment.Payroll.totalNet;
+
+        RETURN TRUE;
+    END;
+END MODULE;

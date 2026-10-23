@@ -1,0 +1,18 @@
+CREATE COMPUTE MODULE Payroll_Worker_ProcessTaxResponse
+    CREATE FUNCTION Main() RETURNS BOOLEAN
+    BEGIN
+
+        -- Extract Tax from Tax API Response
+        DECLARE taxAmt DECIMAL;
+        SET taxAmt = CAST(InputRoot.JSON.Data.tax AS DECIMAL);
+        SET Environment.CurrentEmp.taxAmt = taxAmt;
+
+        -- Prepare Payload for Next Microservice (Bank Account Validation API)
+        SET OutputRoot.JSON.Data.employeeId = Environment.CurrentEmp.empId;
+        SET OutputRoot.JSON.Data.accountNumber = Environment.CurrentEmp.accNo;
+
+        -- Return TRUE to forward payload to CallBankAPI HTTPRequest Node
+        RETURN TRUE;
+    END;
+
+END MODULE;

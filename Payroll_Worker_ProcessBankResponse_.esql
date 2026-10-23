@@ -1,0 +1,60 @@
+
+
+CREATE COMPUTE MODULE Payroll_Worker_ProcessBankResponse_
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	
+    BEGIN
+
+        DECLARE isBankValid BOOLEAN;
+        SET isBankValid = InputRoot.JSON.Data.valid;
+        
+        DECLARE I INTEGER;
+        DECLARE empId CHARACTER;
+        DECLARE empName CHARACTER;
+        DECLARE grossSal DECIMAL;
+        DECLARE taxAmt DECIMAL;
+        DECLARE deductAmt DECIMAL;
+
+        SET I         = Environment.CurrentEmp.index;
+        SET empId     = Environment.CurrentEmp.empId;
+        SET empName   = Environment.CurrentEmp.empName;
+        SET grossSal  = Environment.CurrentEmp.grossSal;
+        SET taxAmt    = Environment.CurrentEmp.taxAmt;
+        SET deductAmt = Environment.CurrentEmp.deductAmt;
+
+        DECLARE netSal DECIMAL;
+        DECLARE empStatus CHARACTER '';
+        SET netSal = 0;
+
+        IF isBankValid = true THEN
+            
+            SET empStatus = 'SUCCESS';
+            SET netSal = grossSal - taxAmt - deductAmt;
+
+            SET Environment.Payroll.totalGross = Environment.Payroll.totalGross + grossSal;
+            SET Environment.Payroll.totalTax   = Environment.Payroll.totalTax + taxAmt;
+            SET Environment.Payroll.totalNet   = Environment.Payroll.totalNet + netSal;
+            SET Environment.Payroll.successCnt = Environment.Payroll.successCnt + 1;
+
+        ELSE
+            
+            -- Status text shortened to fit in VARCHAR(20)
+            SET empStatus = 'FAILED_BAD_BANK';
+            SET Environment.Payroll.failCnt = Environment.Payroll.failCnt + 1;
+
+        END IF;
+
+        -- DB Insert
+        PASSTHRU 'INSERT INTO PAYROLL_TRANSACTION (request_id, company_id, employee_id, gross_salary, tax, net_salary, status) VALUES (?, ?, ?, ?, ?, ?, ?)' 
+        VALUES(Environment.Payroll.requestId, Environment.Payroll.companyId, empId, grossSal, taxAmt, netSal, empStatus);
+
+        SET Environment.Response.employees.Item[I].employeeId  = empId;
+        SET Environment.Response.employees.Item[I].name        = empName;
+        SET Environment.Response.employees.Item[I].grossSalary = grossSal;
+        SET Environment.Response.employees.Item[I].tax         = taxAmt;
+        SET Environment.Response.employees.Item[I].netSalary   = netSal;
+        SET Environment.Response.employees.Item[I].status      = empStatus;
+
+        RETURN FALSE;
+    END;
+END MODULE;

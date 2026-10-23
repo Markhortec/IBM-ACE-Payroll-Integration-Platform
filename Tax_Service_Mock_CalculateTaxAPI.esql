@@ -1,0 +1,32 @@
+
+
+CREATE COMPUTE MODULE Tax_Service_Mock_CalculateTaxAPI
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	-- Incoming Request se Data Nikalo
+        DECLARE empId CHARACTER InputRoot.JSON.Data.employeeId;
+        DECLARE gross DECIMAL CAST(InputRoot.JSON.Data.grossSalary AS DECIMAL);
+        
+        DECLARE taxAmount DECIMAL 0;
+
+        -- Tax Slab Logic (Dynamic External Service):
+        -- Gross < 100,000         --> Tax 5%
+        -- Gross 100,000 - 150,000 --> Tax 10%
+        -- Gross > 150,000         --> Tax 15%
+        IF gross < 100000 THEN
+            SET taxAmount = gross * 0.05;
+        ELSEIF gross <= 150000 THEN
+            SET taxAmount = gross * 0.10;
+        ELSE
+            SET taxAmount = gross * 0.15;
+        END IF;
+
+        -- JSON Response Banao
+        SET OutputRoot.JSON.Data.employeeId = empId;
+        SET OutputRoot.JSON.Data.grossSalary = gross;
+        SET OutputRoot.JSON.Data.tax = taxAmount;
+        SET OutputRoot.JSON.Data.status = 'SUCCESS';
+
+        RETURN TRUE;
+	END;
+END MODULE;

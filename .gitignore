@@ -1,0 +1,17 @@
+# ACE & Eclipse Temporary Metadata
+.metadata/
+bin/
+*.class
+*.tmp
+*.log
+.deployables/
+
+# Audit Log outputs
+C:/PayrollAudit/
+*.audit
+
+# System / OS Files
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/

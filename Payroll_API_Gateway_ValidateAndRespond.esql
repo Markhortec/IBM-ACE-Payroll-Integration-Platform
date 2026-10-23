@@ -1,0 +1,65 @@
+
+
+CREATE COMPUTE MODULE Payroll_API_Gateway_ValidateAndRespond
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	
+BEGIN
+       -- 1. Input Data Extract
+        DECLARE reqId CHARACTER InputRoot.JSON.Data.payrollRequest.requestId;
+        DECLARE compId CHARACTER InputRoot.JSON.Data.payrollRequest.companyId;
+        DECLARE payrollMonth CHARACTER InputRoot.JSON.Data.payrollRequest.payrollMonth;
+        DECLARE empCount INTEGER CARDINALITY(InputRoot.JSON.Data.payrollRequest.employees.Item[]);
+
+        -- 2. Structural Validation Check
+        IF reqId IS NULL OR reqId = '' 
+           OR compId IS NULL OR compId = '' 
+           OR payrollMonth IS NULL OR payrollMonth = '' 
+           OR empCount = 0 THEN
+
+            SET OutputRoot.JSON.Data.status    = 'REJECTED';
+            SET OutputRoot.JSON.Data.errorCode = 'VAL-001';
+            SET OutputRoot.JSON.Data.message   = 'Invalid payroll request. Missing required fields.';
+            
+            RETURN TRUE;
+
+        END IF;
+
+        -- 3. IDEMPOTENCY CHECK: Database lookup
+        DECLARE dbCheck ROW;
+        SET dbCheck.Record[] = PASSTHRU('SELECT COUNT(*) AS totalCount FROM PAYROLL_TRANSACTION WHERE request_id = ?' VALUES(reqId));
+
+        DECLARE existingCount INTEGER 0;
+        IF CARDINALITY(dbCheck.Record[]) > 0 THEN
+            SET existingCount = dbCheck.Record[1].totalCount;
+        END IF;
+
+        IF existingCount > 0 THEN
+
+            -- DUPLICATE REQUEST DETECTED!
+            SET OutputRoot.JSON.Data.status    = 'REJECTED_DUPLICATE';
+            SET OutputRoot.JSON.Data.errorCode = 'PAY-009';
+            SET OutputRoot.JSON.Data.requestId = reqId;
+            SET OutputRoot.JSON.Data.message   = 'Duplicate payroll request. This requestId has already been processed.';
+
+            RETURN TRUE;
+
+        END IF;
+
+        -- 4. NEW REQUEST: MQ Queue par Bhejo
+        SET OutputRoot.MQMD.Format   = 'MQSTR';
+        SET OutputRoot.MQMD.ReplyToQ = 'PAYROLL.RESPONSE';
+
+        SET OutputRoot.JSON.Data.payrollRequest = InputRoot.JSON.Data.payrollRequest;
+
+        PROPAGATE TO TERMINAL 'out1';
+
+        -- 5. Company ko Response Return Karo
+        SET OutputRoot = NULL;
+        SET OutputRoot.JSON.Data.status    = 'ACCEPTED';
+        SET OutputRoot.JSON.Data.requestId = reqId;
+        SET OutputRoot.JSON.Data.message   = 'Payroll request accepted for processing';
+
+        RETURN TRUE;
+
+    END;
+END MODULE;

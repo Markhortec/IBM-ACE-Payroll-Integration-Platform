@@ -1,0 +1,24 @@
+
+
+CREATE COMPUTE MODULE Bank_Service_Mock_ValidateBankAccountAPI
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+	    DECLARE empId CHARACTER InputRoot.JSON.Data.employeeId;
+        DECLARE accNo CHARACTER InputRoot.JSON.Data.accountNumber;
+
+        SET OutputRoot.JSON.Data.employeeId = empId;
+        SET OutputRoot.JSON.Data.accountNumber = accNo;
+
+        -- Test Case Rule:
+        -- Agar Account Number 'PK00BANK000004' (Usman) hai, toh Bank Service status INVALID legi
+        IF accNo = 'PK00BANK000004' OR accNo IS NULL OR accNo = '' THEN
+            SET OutputRoot.JSON.Data.valid = false;
+            SET OutputRoot.JSON.Data.accountStatus = 'BLOCKED_OR_INVALID';
+        ELSE
+            SET OutputRoot.JSON.Data.valid = true;
+            SET OutputRoot.JSON.Data.accountStatus = 'ACTIVE';
+        END IF;
+
+        RETURN TRUE;
+	END;
+END MODULE;

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ComIbmCompute.msgnode="ComIbmCompute.msgnode" xmlns:ComIbmMQInput.msgnode="ComIbmMQInput.msgnode" xmlns:ComIbmMQOutput.msgnode="ComIbmMQOutput.msgnode" xmlns:ComIbmWSRequest.msgnode="ComIbmWSRequest.msgnode" xmlns:Subflow_AuditLogger.subflow="Subflow_AuditLogger.subflow" xmlns:Subflow_GlobalErrorHandler.subflow="Subflow_GlobalErrorHandler.subflow" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:eflow="http://www.ibm.com/wbi/2005/eflow"
+    xmlns:utility="http://www.ibm.com/wbi/2005/eflow_utility" nsURI="Payroll_Worker.msgflow" nsPrefix="Payroll_Worker.msgflow">
+  <eClassifiers xmi:type="eflow:FCMComposite" name="FCMComposite_1" nodeLayoutStyle="RECTANGLE">
+    <eSuperTypes href="http://www.ibm.com/wbi/2005/eflow#//FCMBlock"/>
+    <translation xmi:type="utility:TranslatableString" key="Payroll_Worker" bundleName="Payroll_Worker" pluginId="PayrollIntegration"/>
+    <colorGraphic16 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/PayrollIntegration/icons/full/obj16/Payroll_Worker.gif"/>
+    <colorGraphic32 xmi:type="utility:GIFFileGraphic" resourceName="platform:/plugin/PayrollIntegration/icons/full/obj30/Payroll_Worker.gif"/>
+    <composition>
+      <nodes xmi:type="ComIbmMQInput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_1" location="26,112" queueName="PAYROLL.REQUEST" connection="CLIENT" destinationQueueManagerName="QM1" queueManagerHostname="127.0.0.1" listenerPortNumber="1414" channelName="DEV.ADMIN.SVRCONN" messageDomainProperty="JSON">
+        <translation xmi:type="utility:ConstantString" string="ReceivePayrollRequest"/>
+      </nodes>
+      <nodes xmi:type="ComIbmMQOutput.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_2" location="433,143" queueName="PAYROLL.RESPONSE" connection="CLIENT" destinationQueueManagerName="QM1" queueManagerHostname="127.0.0.1" listenerPortNumber="1414" channelName="DEV.ADMIN.SVRCONN">
+        <translation xmi:type="utility:ConstantString" string="SendPayrollResponse"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_3" location="226,132" dataSource="PAYROLLDB" computeExpression="esql://routine/#Payroll_Worker_ProcessPayroll.Main">
+        <translation xmi:type="utility:ConstantString" string="ProcessPayroll"/>
+      </nodes>
+      <nodes xmi:type="ComIbmWSRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_4" location="389,301" URLSpecifier="http://localhost:7800/tax/calculate" timeoutForServer="5" httpVersion="1.1" protocol="TLS" messageDomainProperty="JSON">
+        <translation xmi:type="utility:ConstantString" string="CallTaxAPI"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_5" location="579,310" dataSource="PAYROLLDB" computeExpression="esql://routine/#Payroll_Worker_ProcessTaxResponse.Main">
+        <translation xmi:type="utility:ConstantString" string="ProcessTaxResponse"/>
+      </nodes>
+      <nodes xmi:type="ComIbmWSRequest.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_6" location="729,203" URLSpecifier="http://localhost:7800/bank/account/validate" timeoutForServer="5" httpVersion="1.1" protocol="TLS" messageDomainProperty="JSON">
+        <translation xmi:type="utility:ConstantString" string="CallBankAPI"/>
+      </nodes>
+      <nodes xmi:type="ComIbmCompute.msgnode:FCMComposite_1" xmi:id="FCMComposite_1_7" location="919,196" dataSource="PAYROLLDB" computeExpression="esql://routine/#Payroll_Worker_ProcessBankResponse_.Main">
+        <translation xmi:type="utility:ConstantString" string="ProcessBankResponse "/>
+      </nodes>
+      <nodes xmi:type="Subflow_GlobalErrorHandler.subflow:FCMComposite_1" xmi:id="FCMComposite_1_8" location="437,416">
+        <translation xmi:type="utility:ConstantString" string="Subflow_GlobalErrorHandler"/>
+      </nodes>
+      <nodes xmi:type="Subflow_AuditLogger.subflow:FCMComposite_1" xmi:id="FCMComposite_1_9" location="1123,189">
+        <translation xmi:type="utility:ConstantString" string="Subflow_AuditLogger"/>
+      </nodes>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_1" targetNode="FCMComposite_1_3" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_2" targetNode="FCMComposite_1_2" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_3" targetNode="FCMComposite_1_4" sourceNode="FCMComposite_1_3" sourceTerminalName="OutTerminal.out1" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_4" targetNode="FCMComposite_1_5" sourceNode="FCMComposite_1_4" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_5" targetNode="FCMComposite_1_6" sourceNode="FCMComposite_1_5" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_6" targetNode="FCMComposite_1_7" sourceNode="FCMComposite_1_6" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.in"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_8" targetNode="FCMComposite_1_9" sourceNode="FCMComposite_1_7" sourceTerminalName="OutTerminal.out" targetTerminalName="InTerminal.Input"/>
+      <connections xmi:type="eflow:FCMConnection" xmi:id="FCMConnection_9" targetNode="FCMComposite_1_8" sourceNode="FCMComposite_1_1" sourceTerminalName="OutTerminal.catch" targetTerminalName="InTerminal.Input"/>
+    </composition>
+    <propertyOrganizer/>
+    <stickyBoard/>
+  </eClassifiers>
+</ecore:EPackage>
